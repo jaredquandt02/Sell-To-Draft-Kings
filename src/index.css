@@ -1,0 +1,40 @@
+:root {
+  --bg-deep: #0a0c0f;
+  --bg-mid: #12161c;
+  --ink: #e8ebe6;
+  --muted: #8b9488;
+  --accent: #c8f542;
+  --accent-dim: #8fb82e;
+  --warn: #ff6b35;
+  --line: rgba(232, 235, 230, 0.12);
+  --font-display: "Bebas Neue", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-body);
+  background:
+    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(200, 245, 66, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 10% 100%, rgba(255, 107, 53, 0.1), transparent 50%),
+    linear-gradient(165deg, var(--bg-deep) 0%, var(--bg-mid) 55%, #0d1117 100%);
+  background-attachment: fixed;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
