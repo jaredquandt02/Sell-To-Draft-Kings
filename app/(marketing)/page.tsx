@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function LandingPage() {
   return (
     <main className="mx-auto flex max-w-2xl flex-col items-center gap-4 px-6 py-24 text-center">
@@ -6,6 +8,12 @@ export default function LandingPage() {
         A fantasy football elimination league. Draft, survive, and pick your
         gladiator each week.
       </p>
+      <Link
+        href="/dashboard"
+        className="mt-2 rounded-md bg-black px-4 py-2 text-white hover:bg-gray-800"
+      >
+        View demo
+      </Link>
     </main>
   );
 }
