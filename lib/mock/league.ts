@@ -105,6 +105,18 @@ export function weeklyPoints(userId: string): number {
   return stats ? scoreStatLine(stats) : 0;
 }
 
+/** Marks your starting QB as banged up so the Medic Card flow has something to demo. */
+export const injuredPlayerIds = new Set(["p1"]);
+export function isInjured(playerId: string): boolean {
+  return injuredPlayerIds.has(playerId);
+}
+
+/** userId -> whether they've used their season's one Medic Card yet. */
+export const hasUsedMedicCardByUser: Record<string, boolean> = { u1: false };
+
+/** userId -> whether they've made this week's gladiator pick yet (drives the Dashboard to-do list). */
+export const hasMadeGladiatorPickByUser: Record<string, boolean> = { u1: false };
+
 const rosteredPlayerIds = new Set(Object.values(rosters).flat());
 export const availablePlayers: Player[] = players.filter((p) => !rosteredPlayerIds.has(p.id));
 

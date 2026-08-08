@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { LEAGUE_ID, POD_ID, WEEK } from "@/lib/mock/league";
+import { POD_ID, WEEK } from "@/lib/mock/league";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: `/draft/${LEAGUE_ID}`, label: "Draft" },
-  { href: `/pod/${POD_ID}`, label: "My Pod" },
-  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/team", label: "My Team" },
+  { href: `/pod/${POD_ID}`, label: "Matchup" },
   { href: `/gladiator-pick/${WEEK}`, label: "Gladiator Pick" },
+  { href: "/leaderboard", label: "League" },
 ];
 
 export function NavBar() {
@@ -23,6 +23,9 @@ export function NavBar() {
             </Link>
           ))}
         </nav>
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+          Week {WEEK}
+        </span>
       </div>
     </header>
   );
