@@ -1,14 +1,22 @@
 /**
- * Shared domain types, mirroring supabase/migrations/0001_core_schema.sql.
+ * Shared domain types, mirroring supabase migrations.
  *
- * `Database` is a placeholder for the Supabase client generics until the
- * real schema is generated with:
+ * Generate typed Database with:
  *   supabase gen types typescript --local > lib/database.types.ts
  */
-export type Database = Record<string, unknown>;
 
-export type LeagueStatus = "drafting" | "active" | "phase2" | "complete";
+export type ContestStatus =
+  | "open"
+  | "drafting"
+  | "active"
+  | "phase2"
+  | "complete";
+
+export type GameMode = "classic" | "gladiator";
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
+
+/** @deprecated Use ContestStatus — leagues renamed to contests. */
+export type LeagueStatus = ContestStatus;
 
 export interface User {
   id: string;
@@ -25,16 +33,33 @@ export interface Season {
   status: "upcoming" | "active" | "complete";
 }
 
-export interface League {
+export interface Contest {
   id: string;
   seasonId: string;
+  name: string;
   entryFeeCredits: number;
-  status: LeagueStatus;
+  maxEntrants: number;
+  podSize: number;
+  gameMode: GameMode;
+  status: ContestStatus;
+  currentWeek: number;
+  lockAt: string | null;
+  draftRounds: number;
+}
+
+/** @deprecated Use Contest */
+export type League = Contest;
+
+export interface ContestEntry {
+  id: string;
+  contestId: string;
+  userId: string;
+  enteredAt: string;
 }
 
 export interface Pod {
   id: string;
-  leagueId: string;
+  contestId: string;
   podNumber: number;
 }
 
@@ -48,15 +73,17 @@ export interface PodMember {
 export interface Roster {
   id: string;
   userId: string;
-  leagueId: string;
+  contestId: string;
 }
 
 export interface RosterPlayer {
+  id?: string;
   rosterId: string;
   playerId: string;
   addedWeek: number;
-  /** Enforcement point for the one-time-use gladiator rule. Null until used. */
   usedAsGladiatorWeek: number | null;
+  isStarter: boolean;
+  slotOrder: number;
 }
 
 export interface Player {
@@ -65,6 +92,16 @@ export interface Player {
   name: string;
   position: Position;
   nflTeam: string;
+}
+
+export interface DraftPick {
+  id: string;
+  contestId: string;
+  podId: string;
+  pickNumber: number;
+  userId: string;
+  playerId: string | null;
+  pickedAt: string | null;
 }
 
 export interface Matchup {
@@ -78,6 +115,7 @@ export interface Matchup {
 
 export interface GladiatorPick {
   id: string;
+  contestId: string;
   rosterPlayerId: string;
   userId: string;
   week: number;
@@ -87,6 +125,7 @@ export interface GladiatorPick {
 
 export interface WeeklyScore {
   id: string;
+  contestId: string;
   userId: string;
   week: number;
   points: number;
@@ -95,9 +134,20 @@ export interface WeeklyScore {
 
 export interface MedicCardUse {
   id: string;
+  contestId: string;
   userId: string;
   triggeredWeek: number;
   backupPlayerId: string;
+}
+
+export interface WaiverClaim {
+  id: string;
+  contestId: string;
+  userId: string;
+  addPlayerId: string;
+  dropPlayerId: string | null;
+  status: "pending" | "fulfilled" | "cancelled";
+  createdAt: string;
 }
 
 export type TransactionType =
@@ -112,4 +162,25 @@ export interface Transaction {
   type: TransactionType;
   credits: number;
   createdAt: string;
+}
+
+export type ContestJobType =
+  | "podding"
+  | "scoring"
+  | "elimination"
+  | "phase2_cuts"
+  | "waivers"
+  | "lock";
+
+export interface ContestJob {
+  id: string;
+  contestId: string | null;
+  jobType: ContestJobType;
+  week: number | null;
+  status: "running" | "succeeded" | "failed";
+  startedAt: string;
+  finishedAt: string | null;
+  rowsAffected: number;
+  error: string | null;
+  idempotencyKey: string;
 }

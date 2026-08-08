@@ -2,14 +2,16 @@ import type { StatsProvider } from "./types";
 import { tank01Provider } from "./tank01";
 import { mySportsFeedsProvider } from "./mysportsfeeds";
 import { sportsDataIOProvider } from "./sportsdataio";
+import { mockProvider } from "./mock";
 
 const providers: Record<string, StatsProvider> = {
+  mock: mockProvider,
   tank01: tank01Provider,
   mysportsfeeds: mySportsFeedsProvider,
   sportsdataio: sportsDataIOProvider,
 };
 
-const providerName = process.env.STATS_PROVIDER ?? "tank01";
+const providerName = process.env.STATS_PROVIDER ?? "mock";
 const provider = providers[providerName];
 
 if (!provider) {
