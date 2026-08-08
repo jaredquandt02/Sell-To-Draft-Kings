@@ -2,95 +2,110 @@
 
 Reference doc for building in Cursor. Covers stack, folder structure, data model, and the swappable stats-provider pattern.
 
+## Product direction
+
+- **End state:** Public massive-field contests (mass entry → auto-pod → shared virtual-credit pool).
+- **Build sequence:** Classic fantasy platform surfaces first (`GAME_MODE=classic`), then mold into Gladiator elimination (`game_mode=gladiator` per contest).
+- **Scale target:** Schema and jobs sized for ~100k entrants/contest (pod sharding, batched scoring, pod-scoped realtime).
+- **Money:** Virtual credits only in v1.
+
 ## Stack (locked in)
 
 - **Frontend/backend:** Next.js 14+ (App Router), TypeScript, Tailwind CSS — single codebase, deploys as one Vercel project.
 - **Database/auth/realtime:** Supabase (Postgres + Auth + Realtime + Storage).
-- **Hosting:** Vercel.
-- **Stats data:** swappable provider interface (see below) — start on Tank01 or MySportsFeeds, swap to SportsDataIO/Sportradar at real-money launch.
+- **Hosting:** Vercel (+ Cron for weekly jobs).
+- **Stats data:** swappable provider interface — default `mock` locally; Tank01 / MySportsFeeds / SportsDataIO when keyed.
 - **Money:** none in v1. Everything runs on virtual credits until legal clears.
 
 ## Why this stack
 
 Next.js + Supabase is the fastest path for a solo builder: one repo, no separate backend service to deploy/monitor, auth and Postgres come free, and Supabase Realtime gives you live-updating scores/leaderboards without hand-rolling websockets. Vercel's Next.js integration is zero-config. None of this locks you in — Postgres and Next.js are easy to migrate off later if you outgrow them.
 
+When Realtime or single-region Postgres becomes the bottleneck (draft night + Sunday scoring), split **workers first** (queue + dedicated scorer), not a full rewrite.
+
 ## Folder structure
 
 ```
 gladiator-league/
   app/
-    (marketing)/              # public landing page, waitlist
-      page.tsx
-      layout.tsx
-    (app)/                    # authenticated app shell
-      dashboard/
-      draft/[leagueId]/
-      pod/[podId]/
-      gladiator-pick/[week]/
-      leaderboard/
-      layout.tsx
-    api/
-      webhooks/                # stats-provider push webhooks, if used
-      cron/                    # scheduled jobs (scoring, cuts, restock)
-    layout.tsx
-    globals.css
+    (marketing)/              # public landing
+    (auth)/                   # login / signup
+    (app)/                    # authenticated shell: lobby, contest, draft, team, …
+    api/cron/                 # scoring, podding, waivers, phase2 cuts
+    api/webhooks/
   lib/
-    supabase/
-      client.ts                # browser client
-      server.ts                # server client (RSC/route handlers)
-      admin.ts                 # service-role client, server-only
-    stats-provider/
-      types.ts                 # ProviderInterface contract
-      tank01.ts                 # implementation
-      mysportsfeeds.ts          # implementation
-      sportsdataio.ts            # implementation (added later)
-      index.ts                  # picks active provider from env
-    game-engine/
-      pods.ts                   # pod assignment, snake draft order
-      elimination.ts             # 1v1 matchup resolution
-      redraft.ts                 # waiver pick-order logic
-      phase2-cuts.ts             # median cut + tie handling
-      medic-card.ts               # injury substitution logic
-      scoring.ts                 # fantasy point calculation
-    types.ts                    # shared domain types
-  components/
-    ui/                         # base components (buttons, cards, inputs)
-    draft/
-    gladiator-pick/
-    leaderboard/
-  supabase/
-    migrations/                 # SQL migrations
-    seed.sql
-  tests/
-    game-engine/                # unit tests for rules — test these hard, independent of UI
+    actions/                  # server actions (entry, draft, roster, gladiator, medic)
+    data/                     # RSC data loaders
+    jobs/                     # service-role batch jobs + observability
+    supabase/                 # browser / server / admin clients
+    stats-provider/           # mock | tank01 | mysportsfeeds | sportsdataio
+    game-engine/              # pure rules (unit tested)
+    config.ts                 # GAME_MODE helpers
+    types.ts
+  scripts/
+    load-test-entry.ts        # staging entry + podding load helper
+  supabase/migrations/
+  tests/game-engine/
 ```
 
-Keep `lib/game-engine/` framework-agnostic — plain TypeScript, no Next.js or Supabase imports inside the rule logic itself. That's what makes the one-time-use gladiator rule, median cuts, and tiebreakers unit-testable without spinning up the whole app, and it's the part of this codebase where a subtle bug actually costs someone money later.
+Keep `lib/game-engine/` framework-agnostic — plain TypeScript, no Next.js or Supabase imports inside the rule logic itself.
 
-## Core data model (Postgres tables, simplified)
+## Contest status machine
+
+`open → drafting → active → phase2 → complete`
+
+- **open:** public lobby entry (`enter_contest` RPC debits credits)
+- **drafting:** after lock/podding cron seeds pods + draft_picks
+- **active:** weekly scoring + (gladiator) elimination
+- **phase2:** median cuts (gladiator mode)
+- **complete:** season over
+
+Per-contest `game_mode`: `classic` (H2H points, no elimination) | `gladiator` (1v1 elimination, Gladiator Pick, Medic Card, median cuts).
+
+## Core data model
 
 ```
 users              id, email, display_name, created_at
 seasons            id, name, start_week, end_week, status
-leagues            id, season_id, entry_fee_credits, status
-pods               id, league_id, pod_number
+contests           id, season_id, name, entry_fee_credits, max_entrants,
+                   pod_size, game_mode, status, current_week, lock_at, draft_rounds
+contest_entries    contest_id, user_id (unique)
+pods               contest_id, pod_number
 pod_members        pod_id, user_id, roster_id, eliminated_at_week
-rosters            id, user_id, league_id
-roster_players     roster_id, player_id, added_week, used_as_gladiator_week (null until used)
-players            id, external_id, name, position, nfl_team    -- synced from stats provider
-matchups           id, pod_id, week, user_id_a, user_id_b, winner_id
-gladiator_picks    id, roster_player_id, user_id, week, score, multiplier_applied
-weekly_scores      id, user_id, week, points, cumulative_points  -- phase 2
-medic_card_uses    id, user_id, triggered_week, backup_player_id
-transactions       id, user_id, type, credits, created_at         -- virtual credits ledger
+rosters            user_id, contest_id
+roster_players     roster_id, player_id, is_starter, slot_order, used_as_gladiator_week
+players            external_id, name, position, nfl_team
+draft_picks        contest_id, pod_id, pick_number, user_id, player_id
+matchups           pod_id, week, user_id_a, user_id_b, winner_id
+gladiator_picks    contest_id, roster_player_id, user_id, week, multiplier_applied
+weekly_scores      contest_id, user_id, week, points, cumulative_points
+medic_card_uses    contest_id, user_id, triggered_week, backup_player_id
+waiver_claims      contest_id, user_id, add_player_id, drop_player_id, status
+transactions       user_id, type, credits          -- virtual credits ledger
+contest_jobs       job_type, idempotency_key, status, rows_affected, error
 ```
 
-The `used_as_gladiator_week` column on `roster_players` is the enforcement point for the one-time-use rule — check it before allowing any gladiator selection, both client-side (UX) and in a Postgres row-level check or trigger (source of truth). Don't trust the client for anything that affects payouts later.
+Scale rules: every hot row keyed by `contest_id` (and `pod_id` where relevant). Realtime subscriptions should be **pod-scoped**, never contest-wide.
+
+The `used_as_gladiator_week` column + insert trigger on `gladiator_picks` enforce one-time-use in Postgres.
+
+## Jobs (`/api/cron`)
+
+Auth with `Authorization: Bearer $CRON_SECRET`.
+
+| `job` | Behavior |
+|-------|----------|
+| `podding` | Lock open contests with full pods of N; seed draft + week-1 matchups |
+| `scoring` | Fetch stats once → score starters → upsert weekly_scores → resolve matchups; eliminate in gladiator mode |
+| `phase2_cuts` | Median cut (`usersCutByMedian`) |
+| `waivers` | Fulfill pending claims in `waiverOrder` |
+| `all` | Podding for open + scoring for active (phase2/waivers opt-in via query flags) |
+
+All jobs write `contest_jobs` rows with idempotency keys (`scoring:{contestId}:{week}`, etc.).
 
 ## Swappable stats-provider pattern
 
 ```ts
-// lib/stats-provider/types.ts
 interface StatsProvider {
   getWeeklyStats(week: number, season: number): Promise<PlayerWeeklyStats[]>;
   getPlayerStatus(playerId: string): Promise<InjuryStatus>;
@@ -98,20 +113,29 @@ interface StatsProvider {
 }
 ```
 
-Each provider (`tank01.ts`, `mysportsfeeds.ts`, `sportsdataio.ts`) implements this interface and maps its own response shape into your internal types. `lib/stats-provider/index.ts` exports whichever implementation matches `process.env.STATS_PROVIDER`. Nothing else in the codebase imports a provider file directly — swapping providers later is a one-line env change, not a rewrite.
+`STATS_PROVIDER=mock|tank01|mysportsfeeds|sportsdataio`. Default **mock** for local/dev and load tests.
 
 ## Environments
 
-- **Local:** Supabase local dev (`supabase start`) or a free-tier hosted project.
-- **Staging:** separate Supabase project + Vercel preview deployments per branch.
-- **Production:** separate Supabase project, real domain, real (eventually) payment integration behind a feature flag.
+- **Local:** Supabase local (`supabase start`) or free-tier hosted; `STATS_PROVIDER=mock`.
+- **Staging:** separate Supabase project + Vercel previews; run `scripts/load-test-entry.ts`.
+- **Production:** separate Supabase project; payments/KYC behind feature flag after legal clearance.
 
-## Suggested build order
+## Load testing
 
-1. Auth + basic app shell (Supabase Auth, protected routes).
-2. Game engine as pure functions with unit tests — pods, matchups, one-time-use rule, median cuts, Medic Card. No UI yet.
-3. Draft flow UI, backed by mock/seeded player data.
-4. Weekly gladiator-pick UI + live scoring, wired to the stats-provider interface.
-5. Leaderboard/standings, Phase 2 cut mechanic.
-6. Landing/marketing page + waitlist capture (can be built in parallel with 1-2, it doesn't depend on the game engine).
-7. Payments/KYC — deferred until legal clearance.
+```bash
+npx tsx scripts/load-test-entry.ts --contest <uuid> --users 48 --dry-run
+npx tsx scripts/load-test-entry.ts --contest <uuid> --users 1008
+```
+
+Target: staging ≥10k entries with pod drafts + weekly score job &lt;15 min after stats available.
+
+## Suggested build order (status)
+
+1. ~~Auth + app shell~~ — middleware, login/signup, lobby
+2. ~~Game engine unit tests~~ — pods, scoring, elimination, phase2, medic
+3. ~~Classic platform~~ — entry, draft, roster, matchup, standings, waivers
+4. ~~Gladiator mold~~ — podding job, elimination scoring, gladiator pick, medic, phase2
+5. Marketing/waitlist polish (landing CTA live)
+6. Payments/KYC — deferred until legal clearance
+7. Massive-field hardening — workers/queue when needed
