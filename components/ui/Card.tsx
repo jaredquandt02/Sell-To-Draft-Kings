@@ -1,13 +1,25 @@
-import type { HTMLAttributes } from "react";
+type CardProps = {
+  children: React.ReactNode;
+  className?: string;
+  interactive?: boolean;
+};
 
 export function Card({
+  children,
   className = "",
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
+  interactive = false,
+}: CardProps) {
   return (
     <div
-      className={`rounded-lg border border-gray-200 p-4 shadow-sm ${className}`}
-      {...props}
-    />
+      className={[
+        "rounded-xl border border-edge bg-canvas p-5 shadow-card",
+        interactive
+          ? "transition-shadow hover:border-edge-strong hover:shadow-lift"
+          : "",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </div>
   );
 }
