@@ -4,8 +4,10 @@ import { getSessionUser } from "@/lib/data/contests";
 import { getPodDetail } from "@/lib/data/game";
 
 export default async function PodPage({ params }: { params: { podId: string } }) {
-  const user = await getSessionUser();
-  const pod = await getPodDetail(params.podId);
+  const [user, pod] = await Promise.all([
+    getSessionUser(),
+    getPodDetail(params.podId),
+  ]);
 
   if (!pod) {
     return (

@@ -43,27 +43,32 @@ export default async function WaiversPage({
   }
 
   const supabase = createClient();
-  const allPlayers = await listPlayers();
-  const onRoster = (await getRosterRows(contest.rosterId)).map((r) => r.player);
+  const [allPlayers, rosterRows, draftedRes, rosteredRes, pendingRaw] = await Promise.all([
+    listPlayers(),
+    getRosterRows(contest.rosterId),
+    supabase
+      .from("draft_picks")
+      .select("player_id")
+      .eq("contest_id", contest.id)
+      .not("player_id", "is", null),
+    supabase
+      .from("roster_players")
+      .select("player_id, rosters!inner(contest_id)")
+      .eq("rosters.contest_id", contest.id),
+    getPendingWaivers(contest.id),
+  ]);
+  const onRoster = rosterRows.map((r) => r.player);
 
   const draftedIds = new Set<string>();
-  const { data: drafted } = await supabase
-    .from("draft_picks")
-    .select("player_id")
-    .eq("contest_id", contest.id)
-    .not("player_id", "is", null);
-  for (const d of (drafted ?? []) as Array<{ player_id: string }>) draftedIds.add(d.player_id);
-
-  const { data: allRosteredInContest } = await supabase
-    .from("roster_players")
-    .select("player_id, rosters!inner(contest_id)")
-    .eq("rosters.contest_id", contest.id);
-  for (const r of (allRosteredInContest ?? []) as Array<{ player_id: string }>) {
+  for (const d of (draftedRes.data ?? []) as Array<{ player_id: string }>) {
+    draftedIds.add(d.player_id);
+  }
+  for (const r of (rosteredRes.data ?? []) as Array<{ player_id: string }>) {
     draftedIds.add(r.player_id);
   }
 
   const freeAgents = allPlayers.filter((p) => !draftedIds.has(p.id));
-  const pending = (await getPendingWaivers(contest.id)) as Array<Record<string, unknown>>;
+  const pending = pendingRaw as Array<Record<string, unknown>>;
   const claimerIds = pending.map((p) => String(p.user_id));
   const names = await getDisplayNames(claimerIds);
   const playerById = new Map(allPlayers.map((p) => [p.id, p]));

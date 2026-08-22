@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/config";
+import { requireActionUser } from "@/lib/auth/action-user";
 
 export async function enterContestAction(
   contestId: string,
@@ -12,10 +12,7 @@ export async function enterContestAction(
     return { ok: false, error: "Supabase is not configured" };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireActionUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { error } = await supabase.rpc("enter_contest", {
@@ -32,7 +29,7 @@ export async function enterContestAction(
 
 export async function signOutAction() {
   if (isSupabaseConfigured()) {
-    const supabase = createClient();
+    const { supabase } = await requireActionUser();
     await supabase.auth.signOut();
   }
   revalidatePath("/");

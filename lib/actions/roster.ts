@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured, GLADIATOR_MULTIPLIER } from "@/lib/config";
 import { canTriggerMedicCard } from "@/lib/game-engine/medic-card";
+import { requireActionUser } from "@/lib/auth/action-user";
 
 export async function setLineupAction(input: {
   rosterId: string;
@@ -13,10 +13,7 @@ export async function setLineupAction(input: {
     return { ok: false, error: "Supabase is not configured" };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireActionUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: roster } = await supabase
@@ -34,12 +31,12 @@ export async function setLineupAction(input: {
     .update({ is_starter: false })
     .eq("roster_id", input.rosterId);
 
-  for (const playerId of input.starterPlayerIds) {
+  if (input.starterPlayerIds.length) {
     await supabase
       .from("roster_players")
       .update({ is_starter: true })
       .eq("roster_id", input.rosterId)
-      .eq("player_id", playerId);
+      .in("player_id", input.starterPlayerIds);
   }
 
   revalidatePath("/team");
@@ -55,10 +52,7 @@ export async function submitWaiverClaimAction(input: {
     return { ok: false, error: "Supabase is not configured" };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireActionUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { error } = await supabase.from("waiver_claims").insert({
@@ -83,10 +77,7 @@ export async function submitGladiatorPickAction(input: {
     return { ok: false, error: "Supabase is not configured" };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireActionUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: rp } = await supabase
@@ -127,10 +118,7 @@ export async function useMedicCardAction(input: {
     return { ok: false, error: "Supabase is not configured" };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireActionUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: existing } = await supabase

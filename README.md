@@ -49,10 +49,19 @@ Fills two 120-person contests (classic + gladiator) with bot users, completed
 pod drafts, week-1 scores, sample gladiator picks, and waiver claims.
 
 ```bash
-npm run seed:test
+npm run seed:test   # 120-person classic + gladiator fields
+npm run seed:ui     # week 2, live draft lab, phase 2, waivers, medic
 ```
 
 Then sign in as `jared@gladiator.test` / `Gladiator1!` and open the lobby.
+
+After `seed:ui` you should see:
+
+- **Lobby** — Week 1 Public Classic (8/12) and Gladiator Open Field (19/48)
+- **Dashboard** — week-2 fields, live draft todo, injured starter + Medic
+- **Live Draft Lab** — Jared on the clock
+- **Test Gladiator Field (120)** — week 2, Gladiator Pick, Medic Card, waivers
+- **Phase 2 Showcase** — median-cut field in `phase2`
 
 ## Load test (staging)
 

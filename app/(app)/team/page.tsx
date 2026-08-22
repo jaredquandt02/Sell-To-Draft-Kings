@@ -45,14 +45,15 @@ export default async function TeamPage({
   }
 
   const supabase = createClient();
-  const { data: medic } = await supabase
-    .from("medic_card_uses")
-    .select("id")
-    .eq("contest_id", contest.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const rows = await getRosterRows(contest.rosterId);
+  const [{ data: medic }, rows] = await Promise.all([
+    supabase
+      .from("medic_card_uses")
+      .select("id")
+      .eq("contest_id", contest.id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    getRosterRows(contest.rosterId),
+  ]);
 
   return (
     <div className="space-y-4">

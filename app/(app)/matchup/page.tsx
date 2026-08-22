@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/data/contests";
 import {
   getUserContests,
   resolveContestForUser,
-  getMatchupDetail,
+  getPodDetail,
 } from "@/lib/data/game";
 import { ContestSwitcher } from "@/components/app/ContestSwitcher";
 import { isSupabaseConfigured } from "@/lib/config";
@@ -60,7 +60,23 @@ export default async function MatchupPage({
     );
   }
 
-  const data = await getMatchupDetail(contest.id, user.id, contest.currentWeek);
+  const detail = contest.podId ? await getPodDetail(contest.podId) : null;
+  const matchup = detail?.matchups.find(
+    (m) => m.userIdA === user.id || m.userIdB === user.id,
+  );
+  const data = detail
+    ? {
+        pod: contest.podId
+          ? {
+              podId: contest.podId,
+              podNumber: contest.podNumber ?? 0,
+              eliminatedAtWeek: contest.eliminatedAtWeek,
+            }
+          : null,
+        detail,
+        matchup,
+      }
+    : null;
   const oppId =
     data?.matchup &&
     (data.matchup.userIdA === user.id

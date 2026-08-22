@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { enterContestAction } from "@/lib/actions/contest";
 import { Button } from "@/components/ui/Button";
@@ -28,6 +29,11 @@ export function EnterContestButton({
             if (!result.ok) {
               setError(result.error);
               return;
+            }
+            try {
+              sessionStorage.removeItem("gladiator.nav");
+            } catch {
+              /* ignore */
             }
             router.push(`/contest/${contestId}`);
             router.refresh();
@@ -73,8 +79,17 @@ export function ContestCard({
               {contest.status}
             </span>
             <span className="text-xs text-gray-500">Week {contest.currentWeek}</span>
+            {alreadyEntered ? (
+              <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                Entered
+              </span>
+            ) : null}
           </div>
-          <h2 className="mt-2 font-semibold">{contest.name}</h2>
+          <h2 className="mt-2 font-semibold">
+            <Link href={`/contest/${contest.id}`} className="hover:underline">
+              {contest.name}
+            </Link>
+          </h2>
           <p className="mt-1 text-sm text-gray-600">
             {contest.entryFeeCredits} credits · pods of {contest.podSize} ·{" "}
             {contest.draftRounds}-round draft
@@ -88,21 +103,21 @@ export function ContestCard({
           </p>
         </div>
         {alreadyEntered ? (
-          <a
+          <Link
             href={`/contest/${contest.id}`}
             className="shrink-0 rounded-md bg-black px-3 py-2 text-sm font-medium text-white"
           >
             Open
-          </a>
+          </Link>
         ) : contest.status === "open" ? (
           <EnterContestButton contestId={contest.id} />
         ) : (
-          <a
+          <Link
             href={`/contest/${contest.id}`}
             className="shrink-0 text-sm text-gray-600 underline"
           >
             View
-          </a>
+          </Link>
         )}
       </div>
     </article>

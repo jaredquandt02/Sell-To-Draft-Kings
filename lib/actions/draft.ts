@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/config";
+import { requireActionUser } from "@/lib/auth/action-user";
 
 export async function makeDraftPickAction(input: {
   pickId: string;
@@ -15,10 +15,7 @@ export async function makeDraftPickAction(input: {
     return { ok: false, error: "Supabase is not configured" };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await requireActionUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: pick, error: pickError } = await supabase

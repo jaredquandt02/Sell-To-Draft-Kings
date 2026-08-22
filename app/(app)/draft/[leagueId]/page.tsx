@@ -14,9 +14,11 @@ export default async function DraftPage({
   params: { leagueId: string };
 }) {
   const contestId = params.leagueId === LEAGUE_ID ? params.leagueId : params.leagueId;
-  const contest = await getContest(contestId);
-  const user = await getSessionUser();
-  const players = await listPlayers();
+  const [contest, user, players] = await Promise.all([
+    getContest(contestId),
+    getSessionUser(),
+    listPlayers(),
+  ]);
 
   if (!isSupabaseConfigured() || !user || !contest) {
     return (
@@ -70,11 +72,17 @@ export default async function DraftPage({
   return (
     <div className="space-y-4">
       <div>
+        <p className="text-xs uppercase tracking-wide text-gray-500">
+          {contest.gameMode === "gladiator" ? "Gladiator" : "Classic"} · {contest.status}
+        </p>
         <h1 className="text-2xl font-bold">{contest.name} — Draft</h1>
         <p className="text-sm text-gray-600">
           Pod {pod.podNumber} · snake · {contest.draftRounds} rounds ·{" "}
           {remaining === 0 ? "complete" : `${remaining} picks left`}
         </p>
+        <Link href={`/contest/${contestId}`} className="text-sm text-blue-600 underline">
+          Back to contest
+        </Link>
       </div>
       <LiveDraftBoard
         contestId={contestId}
@@ -83,6 +91,8 @@ export default async function DraftPage({
         players={players}
         currentUserId={user.id}
         displayNames={Object.fromEntries(names)}
+        draftRounds={contest.draftRounds}
+        podNumber={pod.podNumber}
       />
     </div>
   );

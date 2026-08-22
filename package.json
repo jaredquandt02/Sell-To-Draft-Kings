@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "load-test": "tsx scripts/load-test-entry.ts",
-    "seed:test": "tsx scripts/seed-test-db.ts"
+    "seed:test": "tsx scripts/seed-test-db.ts",
+    "seed:ui": "tsx scripts/seed-ui-fixtures.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

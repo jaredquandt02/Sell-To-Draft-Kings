@@ -56,15 +56,16 @@ export default async function GladiatorPickPage({
   }
 
   const supabase = createClient();
-  const { data: existing } = await supabase
-    .from("gladiator_picks")
-    .select("id, roster_player_id")
-    .eq("contest_id", glad.id)
-    .eq("user_id", user.id)
-    .eq("week", week)
-    .maybeSingle();
-
-  const rows = await getRosterRows(glad.rosterId);
+  const [{ data: existing }, rows] = await Promise.all([
+    supabase
+      .from("gladiator_picks")
+      .select("id, roster_player_id")
+      .eq("contest_id", glad.id)
+      .eq("user_id", user.id)
+      .eq("week", week)
+      .maybeSingle(),
+    getRosterRows(glad.rosterId),
+  ]);
   const options = rows.map((r) => ({
     rosterPlayerId: r.rosterPlayerId,
     player: r.player,

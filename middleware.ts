@@ -14,6 +14,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/auth/")) return true;
   if (pathname.startsWith("/api/cron")) return true;
   if (pathname.startsWith("/api/webhooks")) return true;
+  if (pathname.startsWith("/api/nav")) return true;
   return false;
 }
 
@@ -25,7 +26,6 @@ export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Without Supabase env, allow the app shell (demo/mock mode).
   if (!url || !anonKey) {
     return response;
   }
@@ -47,9 +47,17 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Local JWT read — no Auth round trip on every click.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  let user = session?.user ?? null;
+
+  const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
+  if (user && expiresAt - Date.now() < 60_000) {
+    const refreshed = await supabase.auth.getUser();
+    user = refreshed.data.user;
+  }
 
   const { pathname } = request.nextUrl;
 
